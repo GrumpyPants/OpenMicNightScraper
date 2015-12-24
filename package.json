@@ -19,6 +19,7 @@
   "devDependencies": {
     "cheerio": "latest",
     "express": "latest",
+    "moment": "^2.10.6",
     "pg-promise": "^2.8.5",
     "request": "latest",
     "request-promise": "^1.0.2"
