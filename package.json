@@ -1,0 +1,26 @@
+{
+  "name": "openmic-night-scraper",
+  "version": "1.0.0",
+  "description": "Scraper for the open mic night application. Should just need to run it once to populate the database.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/GrumpyPants/OpenMicNightScraper.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/GrumpyPants/OpenMicNightScraper/issues"
+  },
+  "homepage": "https://github.com/GrumpyPants/OpenMicNightScraper#readme",
+  "devDependencies": {
+    "cheerio": "latest",
+    "express": "latest",
+    "pg-promise": "^2.8.5",
+    "request": "latest",
+    "request-promise": "^1.0.2"
+  }
+}
