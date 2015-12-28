@@ -6,6 +6,12 @@ var pgp = require('pg-promise');
 var Promise = require('bluebird');
 var moment = require('moment');
 var app     = express();
+var http = require('http');
+var https = require('https');
+
+http.globalAgent.maxSockets = 1;
+https.globalAgent.maxSockets = 1;
+
 var connectionString = {
     host: 'localhost', // server name or IP address;
     port: 5432,
@@ -16,9 +22,12 @@ var connectionString = {
 var db = pgp(connectionString);
 var db = db(connectionString);
 app.get('/scrape', function(req, res){
-    var url = 'http://www.badslava.com/';
+    var options = {
+        uri: 'http://www.badslava.com/',
+        timeout: 600000
+    };
 
-    request(url).then(function(html){
+    request(options).then(function(html){
         var $ = cheerio.load(html);
         var blockQuoteLinks = $('blockquote a');
         var promiseArray = [];
@@ -28,14 +37,23 @@ app.get('/scrape', function(req, res){
             cityHref = cityHref.slice(0, typeParamIndex);
             //TODO need to go to each page with type filter = comedy, music, and poety before doing this
             // If the openmic already exists then we just need to update the other type fields
-            promiseArray.push(insertOpenMicsFromCityPage(cityHref, 'comedy'));
-            promiseArray.push(insertOpenMicsFromCityPage(cityHref, 'music'));
-            promiseArray.push(insertOpenMicsFromCityPage(cityHref, 'poetry'));
+            insertOpenMicsFromCityPage(cityHref, 'comedy').then(function(){
+                insertOpenMicsFromCityPage(cityHref, 'music').then(function(){
+                    insertOpenMicsFromCityPage(cityHref, 'poetry');
+                }).catch(function (error) {
+                    console.log(error); // display the error;
+                });
+
+            });
+            //promiseArray.push();
+            //promiseArray.push();
         });
 
-        Promise.all(promiseArray).then(function(){
-            console.log('All insert statements completed');
-        });
+        //Promise.all(promiseArray).then(function(){
+        //    console.log('All insert statements completed');
+        //});
+    }).catch(function (error) {
+        console.log(error); // display the error;
     });
 });
 
@@ -52,17 +70,27 @@ function getWeekdayFromElem($, elem) {
     return weekDays[columnsUntilTheEnd];
 }
 
-function getOpenMicRegularity(regularity) {
-    switch(regularity){
-        case 'Bi-weekly mic':
-            return 'bi-weekly';
-            break;
-        case 'Weekly mic':
-            return 'weekly';
-            break;
-        case 'Monthly mic':
-            return 'monthly';
-            break;
+function getOpenMicRegularity(openMicElement) {
+
+    if (openMicElement.data) {
+        switch (openMicElement.data) {
+            case 'Bi-weekly mic':
+                return 'biweekly';
+                break;
+            case 'Weekly event':
+            case 'Weekly mic':
+                return 'weekly';
+                break;
+            case '#Red\n':
+            case 'Monthly mic':
+                return 'monthly';
+                break;
+            default:
+                console.warn('Unrecognized openmic regularity property found: ' + openMicElement.data);
+        }
+    }
+    else{
+        return "monthly";
     }
 }
 
@@ -84,7 +112,7 @@ function handleInfoWithNotesSection($, openmicElements, openMicDetail) {
 
     openMicDetail.isFree = openmicElements[7].data === "Free Mic";
 
-    openMicDetail.openMicRegularity = getOpenMicRegularity(openmicElements[8].data);
+    openMicDetail.openMicRegularity = getOpenMicRegularity(openmicElements[8]);
 
     if (openmicElements[9].name === 'a'){
         handleSignUpSiteOrEmail($, openmicElements[9], openMicDetail);
@@ -98,7 +126,7 @@ function handleInfoWithNotesSection($, openmicElements, openMicDetail) {
 function handleInfoWithoutNotesSection($, openmicElements, openMicDetail) {
     openMicDetail.isFree = openmicElements[6].data === "Free Mic";
 
-    openMicDetail.openMicRegularity = getOpenMicRegularity(openmicElements[7].data);
+    openMicDetail.openMicRegularity = getOpenMicRegularity(openmicElements[7]);
 
     if (openmicElements[8].name === 'a'){
         handleSignUpSiteOrEmail($, openmicElements[8], openMicDetail);
@@ -131,6 +159,17 @@ function getNextOpenMicDate(weekday) {
     return dateOfOpenMic;
 }
 
+function stripOutNonTimeString(timeString) {
+    if (timeString.indexOf('sign-up')) {
+        timeString = timeString.slice(0, timeString.indexOf('sign-up')).trim();
+    }
+    else {
+        timeString = timeString.slice(0, timeString.indexOf('start')).trim();
+    }
+
+    return timeString;
+}
+
 function insertOpenMicsFromCityPage(cityUrl, type) {
     var _this = this;
     var insertStatement = 'insert into openmic(openmic_name, openmic_weekday, openmic_regularity, comedian, poet, ' +
@@ -138,11 +177,15 @@ function insertOpenMicsFromCityPage(cityUrl, type) {
         'start_time, is_free, next_openmic_date, notes) values($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14,' +
         ' $15, $16, $17)';
 
-    var updateComedianStatement = 'update openmic set comedian=true where openmic_name=$1 and venue_address=$2';
-    var updateMusicianStatement = 'update openmic set musician=true where openmic_name=$1 and venue_address=$2';
-    var updatePoetStatement = 'update openmic set poet=true where openmic_name=$1 and venue_address=$2';
+    var updateComedianStatement = 'update openmic set comedian=true where venue_name=$1 and venue_address=$2';
+    var updateMusicianStatement = 'update openmic set musician=true where venue_name=$1 and venue_address=$2';
+    var updatePoetStatement = 'update openmic set poet=true where venue_name=$1 and venue_address=$2';
 
-    return request(cityUrl + '&type=' + type).then(function(html) {
+    var options = {
+        uri: cityUrl + '&type=' + type,
+        timeout: 600000
+    };
+    return request(options).then(function(html) {
         var $ = cheerio.load(html);
 
         $('b').each(function(i, elem){
@@ -158,23 +201,21 @@ function insertOpenMicsFromCityPage(cityUrl, type) {
 
                     var streetAddress = openmicElements[1].data;
 
-                    db.oneOrNone("select * from openmic where openmic_name=$1 and venue_address=$2", [nameVenueObject.openmicName, streetAddress])
+                    db.oneOrNone("select * from openmic where venue_name=$1 and venue_address=$2", [nameVenueObject.venueName, streetAddress])
                         .then(function (data) {
-
                             if (data) {
-                                console.log(type);
                                 var updateStatement;
-                                if (type === "comedian") {
+                                if (type === "comedy") {
                                     updateStatement = updateComedianStatement;
                                 }
-                                else if(type === "musician") {
+                                else if(type === "music") {
                                     updateStatement = updateMusicianStatement
                                 }
                                 else{
                                     updateStatement = updatePoetStatement
                                 }
-
-                                db.one(updateStatement, [type, streetAddress])
+//\                                console.log("Attempting to update open mic (" + datype);
+                                db.none(updateStatement, [nameVenueObject.venueName, streetAddress])
                             }
                             else {
 
@@ -183,12 +224,15 @@ function insertOpenMicsFromCityPage(cityUrl, type) {
 
                                 var state = openmicElements[2].data.slice(commaIndex + 1, openmicElements[2].length);
 
-                                var signUpTime = openmicElements[4].data;
-                                var startTime = openmicElements[5].data;
+                                var signUpTime = stripOutNonTimeString(openmicElements[4].data);
+                                var startTime = stripOutNonTimeString(openmicElements[5].data);
 
                                 var openMicDetail = {};
                                 if (openmicElements[6].name === 'a') {
                                     handleInfoWithNotesSection($, openmicElements, openMicDetail);
+                                }
+                                else if (openmicElements[6].data.indexOf('end')) {
+                                    return;
                                 }
                                 else {
                                     handleInfoWithoutNotesSection($, openmicElements, openMicDetail);
@@ -217,13 +261,15 @@ function insertOpenMicsFromCityPage(cityUrl, type) {
                                     nameVenueObject.venueName, streetAddress, state, city, signUpTime, startTime,
                                     openMicDetail.isFree, nextOpenMicDate, openMicDetail.notes];
 
-                                return db.one(insertStatement, values);
+                                return db.none(insertStatement, values);
                             }
                         }).catch(function (error) {
                         console.log(error); // display the error;
                     });
                 }
         });
+    }).catch(function(error){
+        console.log(error);
     });
 }
 
@@ -236,7 +282,7 @@ function getNameAndVenueFromBoldElement(nameText) {
         };
     }
     else{
-        return {'openmicName': nameText, 'venueName': null}
+        return {'openmicName': null, 'venueName': nameText}
     }
 }
 
