@@ -215,7 +215,9 @@ function insertOpenMicsFromCityPage(cityUrl, type) {
                                     updateStatement = updatePoetStatement
                                 }
 //\                                console.log("Attempting to update open mic (" + datype);
-                                db.none(updateStatement, [nameVenueObject.venueName, streetAddress])
+                                db.none(updateStatement, [nameVenueObject.venueName, streetAddress]).catch(function (error) {
+                                    console.log(error);
+                                });
                             }
                             else {
 
