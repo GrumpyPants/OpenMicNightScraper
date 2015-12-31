@@ -45,13 +45,7 @@ app.get('/scrape', function(req, res){
                 });
 
             });
-            //promiseArray.push();
-            //promiseArray.push();
         });
-
-        //Promise.all(promiseArray).then(function(){
-        //    console.log('All insert statements completed');
-        //});
     }).catch(function (error) {
         console.log(error); // display the error;
     });
@@ -110,7 +104,7 @@ function handleInfoWithNotesSection($, openmicElements, openMicDetail) {
     var endOfAlertIndex = onClickAttribute.indexOf("'); return false;");
     openMicDetail.notes = onClickAttribute.slice(7, endOfAlertIndex);
 
-    openMicDetail.isFree = openmicElements[7].data === "Free Mic";
+    openMicDetail.isFree = openmicElements[7].data === "Free mic";
 
     openMicDetail.openMicRegularity = getOpenMicRegularity(openmicElements[8]);
 
@@ -137,6 +131,10 @@ function handleInfoWithoutNotesSection($, openmicElements, openMicDetail) {
     }
 }
 
+function capitalizeFirstLetter(string) {
+    return string.charAt(0).toUpperCase() + string.slice(1);
+}
+
 function getNextOpenMicDate(weekday) {
     var now = moment();
     var weekDays = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
@@ -160,7 +158,7 @@ function getNextOpenMicDate(weekday) {
 }
 
 function stripOutNonTimeString(timeString) {
-    if (timeString.indexOf('sign-up')) {
+    if (timeString.indexOf('sign-up') !== -1) {
         timeString = timeString.slice(0, timeString.indexOf('sign-up')).trim();
     }
     else {
@@ -174,8 +172,8 @@ function insertOpenMicsFromCityPage(cityUrl, type) {
     var _this = this;
     var insertStatement = 'insert into openmic(openmic_name, openmic_weekday, openmic_regularity, comedian, poet, ' +
         'musician, contact_email_address, contact_phone_number, venue_name, venue_address, state, city, sign_up_time, ' +
-        'start_time, is_free, next_openmic_date, notes) values($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14,' +
-        ' $15, $16, $17)';
+        'start_time, is_free, next_openmic_date, notes, website) values($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14,' +
+        ' $15, $16, $17, $18)';
 
     var updateComedianStatement = 'update openmic set comedian=true where venue_name=$1 and venue_address=$2';
     var updateMusicianStatement = 'update openmic set musician=true where venue_name=$1 and venue_address=$2';
@@ -200,8 +198,10 @@ function insertOpenMicsFromCityPage(cityUrl, type) {
                     var nameVenueObject = getNameAndVenueFromBoldElement(nameText);
 
                     var streetAddress = openmicElements[1].data;
-
-                    db.oneOrNone("select * from openmic where venue_name=$1 and venue_address=$2", [nameVenueObject.venueName, streetAddress])
+                    var selectQueryOpenMicName = nameVenueObject.openmicName ? nameVenueObject.openmicName :
+                                                                               capitalizeFirstLetter(weekday) + ' Open Mic';
+                    var selectQueryValues = [selectQueryOpenMicName, nameVenueObject.venueName, streetAddress, weekday];
+                    db.oneOrNone("select * from openmic where openmic_name=$1 and venue_name=$2 and venue_address=$3 and openmic_weekday=$4", selectQueryValues)
                         .then(function (data) {
                             if (data) {
                                 var updateStatement;
@@ -256,10 +256,14 @@ function insertOpenMicsFromCityPage(cityUrl, type) {
                                 //console.log("open mic name: " + nameVenueObject.openmicName);
                                 var nextOpenMicDate = getNextOpenMicDate(weekday);
 
-                                var values = [nameVenueObject.openmicName, weekday, openMicDetail.openMicRegularity, isComedianAllowed, isPoetryAllowed,
-                                    isMusicianAllowed, openMicDetail.contactEmailAddress, openMicDetail.contactPhoneNumber,
+                                //var openMicNameValue = nameVenueObject.openmicName ? nameVenueObject.openmicName : 'Open Mic';
+
+                                var openMicNameValue = nameVenueObject.openmicName ? nameVenueObject.openmicName :
+                                                                                     capitalizeFirstLetter(weekday) + ' Open Mic';
+                                var values = [openMicNameValue, weekday, openMicDetail.openMicRegularity, isComedianAllowed, isPoetryAllowed,
+                                    isMusicianAllowed, openMicDetail.openmicContactEmail, openMicDetail.phoneNumber,
                                     nameVenueObject.venueName, streetAddress, state, city, signUpTime, startTime,
-                                    openMicDetail.isFree, nextOpenMicDate, openMicDetail.notes];
+                                    openMicDetail.isFree, nextOpenMicDate, openMicDetail.notes, openMicDetail.signUpSite];
 
                                 return db.none(insertStatement, values);
                             }
