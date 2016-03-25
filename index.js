@@ -142,7 +142,7 @@ function getNextOpenMicDate(weekday, regularity) {
     var todayWeekDayIndex = now.weekday();
     var openMicWeekDayIndex = weekDays.indexOf(weekday);
     var dateOfOpenMic;
-    var delta
+    var delta;
     if (openMicWeekDayIndex < todayWeekDayIndex) {
         delta = todayWeekDayIndex - openMicWeekDayIndex;
         dateOfOpenMic = now.subtract(delta, 'days');
@@ -168,7 +168,7 @@ function getNextOpenMicDate(weekday, regularity) {
         dateOfOpenMic = now;
     }
 
-    return dateOfOpenMic;
+    return dateOfOpenMic.startOf('day');
 }
 
 function stripOutNonTimeString(timeString) {
