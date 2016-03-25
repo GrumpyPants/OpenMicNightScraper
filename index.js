@@ -69,6 +69,7 @@ function getOpenMicRegularity(openMicElement) {
     if (openMicElement.data) {
         switch (openMicElement.data) {
             case 'Bi-weekly mic':
+            case 'Bi-weekly event':
                 return 'biweekly';
                 break;
             case 'Weekly event':
@@ -135,7 +136,7 @@ function capitalizeFirstLetter(string) {
     return string.charAt(0).toUpperCase() + string.slice(1);
 }
 
-function getNextOpenMicDate(weekday) {
+function getNextOpenMicDate(weekday, regularity) {
     var now = moment();
     var weekDays = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
     var todayWeekDayIndex = now.weekday();
@@ -145,6 +146,19 @@ function getNextOpenMicDate(weekday) {
     if (openMicWeekDayIndex < todayWeekDayIndex) {
         delta = todayWeekDayIndex - openMicWeekDayIndex;
         dateOfOpenMic = now.subtract(delta, 'days');
+        switch (regularity){
+            case 'weekly':
+                dateOfOpenMic.add(1, 'w');
+                break;
+            case 'monthly':
+                dateOfOpenMic.add(1, 'M');
+                break;
+            case 'biweekly':
+                dateOfOpenMic.add(2, 'w');
+                break;
+            default:
+                console.warn('unrecognized regularity');
+        }
     }
     else if (todayWeekDayIndex < openMicWeekDayIndex){
         delta = openMicWeekDayIndex - todayWeekDayIndex;
@@ -256,7 +270,7 @@ function insertOpenMicsFromCityPage(cityUrl, type) {
 
                                 //console.log(cityUrl + '&type=' + type);
                                 //console.log("open mic name: " + nameVenueObject.openmicName);
-                                var nextOpenMicDate = getNextOpenMicDate(weekday);
+                                var nextOpenMicDate = getNextOpenMicDate(weekday, openMicDetail.openMicRegularity);
 
                                 //var openMicNameValue = nameVenueObject.openmicName ? nameVenueObject.openmicName : 'Open Mic';
 
