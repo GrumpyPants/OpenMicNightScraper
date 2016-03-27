@@ -184,10 +184,11 @@ function stripOutNonTimeString(timeString) {
 
 function insertOpenMicsFromCityPage(cityUrl, type) {
     var _this = this;
-    var insertStatement = 'insert into openmic(openmic_name, openmic_weekday, openmic_regularity, comedian, poet, ' +
-        'musician, contact_email_address, contact_phone_number, venue_name, venue_address, state, city, sign_up_time, ' +
-        'start_time, is_free, next_openmic_date, notes, website) values($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14,' +
-        ' $15, $16, $17, $18)';
+    //var insertStatement = 'insert into openmic values(${openmic_name}, ${regularity}, ${comedian}, ${poet}, ' +
+    //    '${musician}, ${contact_email_address}, ${contact_phone_number}, ${venue_name}, ${venue_address}, ${state}, ${city}, ${sign_up_time}, ' +
+    //    '${start_time}, ${is_free}, ${next_openmic_date}, ${notes}, ${website}, ';
+
+
 
     var updateComedianStatement = 'update openmic set comedian=true where venue_name=$1 and venue_address=$2';
     var updateMusicianStatement = 'update openmic set musician=true where venue_name=$1 and venue_address=$2';
@@ -214,8 +215,12 @@ function insertOpenMicsFromCityPage(cityUrl, type) {
                     var streetAddress = openmicElements[1].data;
                     var selectQueryOpenMicName = nameVenueObject.openmicName ? nameVenueObject.openmicName :
                                                                                capitalizeFirstLetter(weekday) + ' Open Mic';
-                    var selectQueryValues = [selectQueryOpenMicName, nameVenueObject.venueName, streetAddress, weekday];
-                    db.oneOrNone("select * from openmic where openmic_name=$1 and venue_name=$2 and venue_address=$3 and openmic_weekday=$4", selectQueryValues)
+
+                    var selectQueryString = 'select * from openmic where name=$1 and venue_name=$2 and venue_address=$3 and ';
+                    selectQueryString += weekday + '=$4';
+
+                    var selectQueryValues = [selectQueryOpenMicName, nameVenueObject.venueName, streetAddress, true];
+                    db.oneOrNone(selectQueryString, selectQueryValues)
                         .then(function (data) {
                             if (data) {
                                 var updateStatement;
@@ -272,14 +277,16 @@ function insertOpenMicsFromCityPage(cityUrl, type) {
                                 //console.log("open mic name: " + nameVenueObject.openmicName);
                                 var nextOpenMicDate = getNextOpenMicDate(weekday, openMicDetail.openMicRegularity);
 
-                                //var openMicNameValue = nameVenueObject.openmicName ? nameVenueObject.openmicName : 'Open Mic';
+                                var openMicNameValue = nameVenueObject.openmicName ? nameVenueObject.openmicName : capitalizeFirstLetter(weekday) + ' Open Mic';
+                                var insertStatement = 'insert into openmic(name, regularity, comedian, poet, ' +
+                                    'musician, contact_email_address, contact_phone_number, venue_name, venue_address, state, city, sign_up_time, ' +
+                                    'start_time, is_free, next_openmic_date, notes, website, ' + weekday + ') values($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14,' +
+                                    ' $15, $16, $17, $18)';
 
-                                var openMicNameValue = nameVenueObject.openmicName ? nameVenueObject.openmicName :
-                                                                                     capitalizeFirstLetter(weekday) + ' Open Mic';
-                                var values = [openMicNameValue, weekday, openMicDetail.openMicRegularity, isComedianAllowed, isPoetryAllowed,
+                                var values = [openMicNameValue, openMicDetail.openMicRegularity, isComedianAllowed, isPoetryAllowed,
                                     isMusicianAllowed, openMicDetail.openmicContactEmail, openMicDetail.phoneNumber,
                                     nameVenueObject.venueName, streetAddress, state, city, signUpTime, startTime,
-                                    openMicDetail.isFree, nextOpenMicDate, openMicDetail.notes, openMicDetail.signUpSite];
+                                    openMicDetail.isFree, nextOpenMicDate, openMicDetail.notes, openMicDetail.signUpSite, true];
 
                                 return db.none(insertStatement, values);
                             }
