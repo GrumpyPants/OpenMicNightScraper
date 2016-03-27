@@ -105,7 +105,7 @@ function handleInfoWithNotesSection($, openmicElements, openMicDetail) {
     var endOfAlertIndex = onClickAttribute.indexOf("'); return false;");
     openMicDetail.notes = onClickAttribute.slice(7, endOfAlertIndex);
 
-    openMicDetail.isFree = openmicElements[7].data === "Free mic";
+    openMicDetail.isFree = openmicElements[7].data === "Free mic" || openmicElements[7].data === "Free event";
 
     openMicDetail.openMicRegularity = getOpenMicRegularity(openmicElements[8]);
 
@@ -119,7 +119,7 @@ function handleInfoWithNotesSection($, openmicElements, openMicDetail) {
 }
 
 function handleInfoWithoutNotesSection($, openmicElements, openMicDetail) {
-    openMicDetail.isFree = openmicElements[6].data === "Free Mic";
+    openMicDetail.isFree = openmicElements[6].data === "Free mic" || openmicElements[6].data === "Free event";
 
     openMicDetail.openMicRegularity = getOpenMicRegularity(openmicElements[7]);
 
